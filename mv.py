@@ -52,6 +52,7 @@ class MicrInst(QMainWindow):
         hist, bins = np.histogram(z, range=(z_min, z_max), bins=int((z_max-z_min)/z_bin))
         Qm = self.Qe * self.Ne / self.N
         I = hist * Qm / (z_bin/self.c)
+
         return bins, I
 
     def plot_area(self):
