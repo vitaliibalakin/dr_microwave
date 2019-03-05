@@ -5,6 +5,8 @@ from PyQt5 import uic
 import sys
 import numpy as np
 import pyqtgraph as pg
+# import pyximport; pyximport.install()
+# import cav_turn
 
 
 class MicrInst(QMainWindow):
@@ -31,49 +33,77 @@ class MicrInst(QMainWindow):
         self.wake = []
         self.v = []
         self.L_wake = 10  # m
-        self.xi = np.linspace(-1 * self.L_wake, 0, int(self.L_wake / self.dz))
         self.Fr = self.spin_freq.value() * 1e9
         self.Rsh = self.spin_Rsh.value() * 1e3
         self.Q = self.spin_Q.value()
 
         # Electron beam def
+        self.custom_dist = 'default'
         self.Ne = 2e10  # particles number
         self.N = 3000   # particles number in this simulation
 
-        self.sigma_z = 0.7  # m
+        self.sigma_z = 1  # m
         self.sigma_dp = 0.004   # momentum spread
 
         # initial beam
-        self.z0 = np.random.normal(scale=self.sigma_z, size=self.N)
-        self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
-        self.dp_plot.plot(self.z0, 100*self.dp0, pen=None, symbol='star', symbolSize=5)
-
-        self.curr_z, self.I = self.get_curr(self.z0)
-        # init wake
-        self.wake = self.calc_wake(self.xi)
-        # init wake convolution
-        self.v = - np.convolve(self.wake, self.I) * self.dz / self.c
-        self.zv = np.linspace(max(self.curr_z) - self.dz * len(self.v), max(self.curr_z), len(self.v))
+        self.beam_particles_dist()
 
         self.wake2plot, self.curr2plot, self.dp2plot = self.cav_turns(self.spin_n_turns.value())
 
-        self.curr_plot.plot(self.curr_z, -self.I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
+        self.dp_plot.plot(self.z0, 100 * self.dp0, pen=None, symbol='star', symbolSize=5)
+        # self.curr_plot.plot(self.curr_z, -self.I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
+        self.curr_plot.plot(self.z0)
         self.wake_plot.plot(self.xi, self.wake / 1e12, pen=pg.mkPen('g', width=1))
         self.wake_curr_plot.plot(self.zv, self.v / 1e3, pen=pg.mkPen('r', width=1))
 
         # callbacks
         self.button_calculate.clicked.connect(self.turn_recalc)
         self.spin_turn.valueChanged.connect(self.turn_replot)
+        self.rb_linac_beam.toggled.connect(self.beam_type)
+        
+    def beam_type(self):
+        if self.rb_linac_beam.isChecked():
+            self.custom_dist = 'linac_beam'
+        else:
+            self.custom_dist = 'default'
+        self.beam_particles_dist()
 
-    def get_curr(self, z, z_bin=0.03, z_min=-15, z_max=15):
+    def beam_particles_dist(self):
+        if self.custom_dist == 'default':
+            self.dz = 0.03
+            self.sigma_z = 1
+            self.z0 = np.random.normal(scale=self.sigma_z, size=self.N)
+            self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
+        elif self.custom_dist == 'linac_beam':
+            self.dz = 0.006
+            self.sigma_z = 0.0006
+            self.z0 = np.random.normal(scale=self.sigma_z, size=int(self.N))
+            self.dp0 = np.random.normal(scale=self.sigma_dp, size=int(self.N))
+        else:
+            print('u should not be here')
+
+        # init beam
+        self.curr_z, self.I = self.get_curr(self.z0)
+
+        # init wake
+        self.xi = np.linspace(-1 * self.L_wake, 0, int(self.L_wake / self.dz))
+        self.wake = self.calc_wake(self.xi)
+        # init wake convolution
+
+        self.v = - np.convolve(self.wake, self.I) * self.dz / self.c
+        self.zv = np.linspace(max(self.curr_z) - self.dz * len(self.v), max(self.curr_z), len(self.v))
+
+    def get_curr(self, z, z_min=-15, z_max=15):
         # all units in meter
-        hist, bins = np.histogram(z, range=(z_min, z_max), bins=int((z_max-z_min)/z_bin))
+        hist, bins = np.histogram(z, range=(z_min, z_max), bins=int((z_max-z_min)/self.dz))
         Qm = self.Qe * self.Ne / self.N
-        I = hist * Qm / (z_bin/self.c)
+        I = hist * Qm / (self.dz/self.c)
 
         return bins, I
 
     def plot_area(self):
+        pg.setConfigOption('background', 'w')
+        pg.setConfigOption('foreground', 'k')
         self.plot_window = pg.GraphicsLayoutWidget(parent=self)
         # wake
         self.wake_plot = self.plot_window.addPlot(enableMenu=False)
@@ -155,6 +185,7 @@ class MicrInst(QMainWindow):
         self.v = - np.convolve(self.wake, self.I) * self.dz / self.c
 
         self.wake2plot, self.curr2plot,  self.dp2plot = self.cav_turns(self.spin_n_turns.value())
+        self.turn_replot()
 
     def turn_replot(self):
         z, dp = self.dp2plot[self.spin_turn.value()]
