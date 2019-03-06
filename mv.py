@@ -38,7 +38,7 @@ class MicrInst(QMainWindow):
         self.Q = self.spin_Q.value()
 
         # Electron beam def
-        self.custom_dist = 'default'
+        self.custom_dist = 'linac_beam'
         self.Ne = 2e10  # particles number
         self.N = 3000   # particles number in this simulation
 
@@ -51,8 +51,7 @@ class MicrInst(QMainWindow):
         self.wake2plot, self.curr2plot, self.dp2plot = self.cav_turns(self.spin_n_turns.value())
 
         self.dp_plot.plot(self.z0, 100 * self.dp0, pen=None, symbol='star', symbolSize=5)
-        # self.curr_plot.plot(self.curr_z, -self.I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
-        self.curr_plot.plot(self.z0)
+        self.curr_plot.plot(self.curr_z, -self.I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
         self.wake_plot.plot(self.xi, self.wake / 1e12, pen=pg.mkPen('g', width=1))
         self.wake_curr_plot.plot(self.zv, self.v / 1e3, pen=pg.mkPen('r', width=1))
 
@@ -69,16 +68,19 @@ class MicrInst(QMainWindow):
         self.beam_particles_dist()
 
     def beam_particles_dist(self):
+        self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
         if self.custom_dist == 'default':
             self.dz = 0.03
             self.sigma_z = 1
             self.z0 = np.random.normal(scale=self.sigma_z, size=self.N)
-            self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
         elif self.custom_dist == 'linac_beam':
+            n_local = int(self.N / 3)  # I wanna see 15 bunches
             self.dz = 0.006
             self.sigma_z = 0.0006
-            self.z0 = np.random.normal(scale=self.sigma_z, size=int(self.N))
-            self.dp0 = np.random.normal(scale=self.sigma_dp, size=int(self.N))
+            curr_z0 = np.array([])
+            for i in range(-1, 2):
+                curr_z0 = np.append(curr_z0, np.random.normal(loc=0.105*i, scale=self.sigma_z, size=n_local))
+            self.z0 = curr_z0
         else:
             print('u should not be here')
 
@@ -162,7 +164,7 @@ class MicrInst(QMainWindow):
             v = - np.convolve(self.wake, I) * self.dz / self.c
             wake2plot[turn] = (self.zv, v)
             v_s = np.interp(z, self.zv, v)
-            dp = dp + v_s / self.p0
+            # dp = dp + v_s / self.p0
 
             z = z - self.L*self.alpha_p*dp
             self.status_bar.showMessage("turn = %g %%" % (100*turn/n_turns))
@@ -195,6 +197,7 @@ class MicrInst(QMainWindow):
         curr_z, I = self.curr2plot[self.spin_turn.value()]
         self.curr_plot.clear()
         self.curr_plot.plot(curr_z, -I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
+        # self.curr_plot.plot(z)
 
         zv, v = self.wake2plot[self.spin_turn.value()]
         self.wake_curr_plot.clear()
