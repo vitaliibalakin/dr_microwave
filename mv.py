@@ -74,11 +74,11 @@ class MicrInst(QMainWindow):
             self.sigma_z = 1
             self.z0 = np.random.normal(scale=self.sigma_z, size=self.N)
         elif self.custom_dist == 'linac_beam':
-            n_local = int(self.N / 3)  # I wanna see 15 bunches
+            n_local = int(self.N / 15)  # I wanna see 15 bunches
             self.dz = 0.006
             self.sigma_z = 0.0006
             curr_z0 = np.array([])
-            for i in range(-1, 2):
+            for i in range(-7, 8):
                 curr_z0 = np.append(curr_z0, np.random.normal(loc=0.105*i, scale=self.sigma_z, size=n_local))
             self.z0 = curr_z0
         else:
