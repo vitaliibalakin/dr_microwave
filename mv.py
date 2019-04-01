@@ -38,7 +38,7 @@ class MicrInst(QMainWindow):
         self.Q = self.spin_Q.value()
 
         # Electron beam def
-        self.custom_dist = 'linac_beam'
+        self.custom_dist = 'default'
         self.Ne = 2e10  # particles number
         self.N = 3000   # particles number in this simulation
 
@@ -163,7 +163,7 @@ class MicrInst(QMainWindow):
             curr2plot[turn] = (curr_z, I)
             v = - np.convolve(self.wake, I) * self.dz / self.c
             wake2plot[turn] = (self.zv, v)
-            v_s = np.interp(z, self.zv, v)
+            # v_s = np.interp(z, self.zv, v)
             # dp = dp + v_s / self.p0
 
             z = z - self.L*self.alpha_p*dp
