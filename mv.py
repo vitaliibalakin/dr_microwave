@@ -44,7 +44,6 @@ class MicrInst(QMainWindow):
 
         self.sigma_z = 1  # m
         self.sigma_dp = 0.004   # momentum spread
-
         # initial beam
         self.beam_particles_dist()
 
