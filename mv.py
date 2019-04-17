@@ -38,7 +38,7 @@ class MicrInst(QMainWindow):
         self.Q = self.spin_Q.value()
 
         # Electron beam def
-        self.custom_dist = 'linac_beam'
+        self.custom_dist = 'default'
         self.Ne = 2e10  # particles number
         self.N = 3000   # particles number in this simulation
 
