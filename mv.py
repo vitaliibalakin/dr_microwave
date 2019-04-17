@@ -163,7 +163,7 @@ class MicrInst(QMainWindow):
             curr2plot[turn] = (curr_z, I)
             v = - np.convolve(self.wake, I) * self.dz / self.c
             wake2plot[turn] = (self.zv, v)
-            v_s = np.interp(z, self.zv, v)
+            # v_s = np.interp(z, self.zv, v)
             # dp = dp + v_s / self.p0
 
             z = z - self.L*self.alpha_p*dp
