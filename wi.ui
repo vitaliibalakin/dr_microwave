@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1161</width>
-    <height>590</height>
+    <height>800</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -20,17 +20,7 @@
       <x>90</x>
       <y>0</y>
       <width>771</width>
-      <height>541</height>
-     </rect>
-    </property>
-   </widget>
-   <widget class="QWidget" name="output_fft" native="true">
-    <property name="geometry">
-     <rect>
-      <x>870</x>
-      <y>590</y>
-      <width>361</width>
-      <height>151</height>
+      <height>751</height>
      </rect>
     </property>
    </widget>
