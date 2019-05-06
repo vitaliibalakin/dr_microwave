@@ -22,7 +22,7 @@ class MicrInst(QMainWindow):
         self.Qe = -1.60217662e-19    # elementary charge in Coulombs
         self.p0 = 400e6  # eV/c
         self.L = 27  # m, damping ring perimeter
-        self.alpha_p = 1 / 36 - 1 / ((self.p0/self.mc)**2)  # momentum compactor factor
+        # self.alpha_p = 1 / 36 - 1 / ((self.p0/self.mc)**2)  # momentum compactor factor
         self.h = 1
         self.eVrf = 9.51e3  # eV, RF voltage
         self.sr_dump = 1.8e3  # eV, SR dumping
@@ -35,6 +35,7 @@ class MicrInst(QMainWindow):
         self.L_wake = 10  # m
         self.Fr = self.spin_freq.value() * 1e9
         self.Rsh = self.spin_Rsh.value() * 1e3
+        self.alpha_p = self.spin_alpha_p.value()
         self.Q = self.spin_Q.value()
 
         # Electron beam def
@@ -175,6 +176,7 @@ class MicrInst(QMainWindow):
 
         self.Fr = self.spin_freq.value() * 1e9
         self.Rsh = self.spin_Rsh.value() * 1e3
+        self.alpha_p = self.spin_alpha_p.value()
         self.Q = self.spin_Q.value()
 
         # wake
