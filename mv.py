@@ -19,7 +19,7 @@ class MicrInst(QMainWindow):
         # constants definitions
         self.c = 299792458  # m/s
         self.mc = 0.511e6   # eV/c
-        self.Qe = -1.60217662e-19    # elementary charge in Coulombs
+        self.Qe = 1.60217662e-19    # elementary charge in Coulombs
         self.p0 = 400e6  # eV/c
         self.L = 27  # m, damping ring perimeter
         # self.alpha_p = 1 / 36 - 1 / ((self.p0/self.mc)**2)  # momentum compactor factor
@@ -41,9 +41,9 @@ class MicrInst(QMainWindow):
         # Electron beam def
         self.custom_dist = 'default'
         self.Ne = 2e10  # particles number
-        self.N = 3000   # particles number in this simulation
+        self.N = 5000   # particles number in this simulation
 
-        self.sigma_z = 1  # m
+        self.sigma_z = 0.6  # m
         self.sigma_dp = 0.004   # momentum spread
         # initial beam
         self.beam_particles_dist()
@@ -51,7 +51,7 @@ class MicrInst(QMainWindow):
         self.wake2plot, self.curr2plot, self.dp2plot = self.cav_turns(self.spin_n_turns.value())
 
         self.dp_plot.plot(self.z0, 100 * self.dp0, pen=None, symbol='star', symbolSize=5)
-        self.curr_plot.plot(self.curr_z, -self.I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
+        self.curr_plot.plot(self.curr_z, self.I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
         self.wake_plot.plot(self.xi, self.wake / 1e12, pen=pg.mkPen('g', width=1))
         self.wake_curr_plot.plot(self.zv, self.v / 1e3, pen=pg.mkPen('r', width=1))
 
@@ -68,13 +68,13 @@ class MicrInst(QMainWindow):
         self.beam_particles_dist()
 
     def beam_particles_dist(self):
-        self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
         if self.custom_dist == 'default':
             self.dz = 0.03
             self.sigma_z = 1
             self.z0 = np.random.normal(scale=self.sigma_z, size=self.N)
         elif self.custom_dist == 'linac_beam':
             n_local = int(self.N / 15)  # I wanna see 15 bunches
+            self.N = n_local * 15
             self.dz = 0.006
             self.sigma_z = 0.0006
             curr_z0 = np.array([])
@@ -83,6 +83,7 @@ class MicrInst(QMainWindow):
             self.z0 = curr_z0
         else:
             print('u should not be here')
+        self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
 
         # init beam
         self.curr_z, self.I = self.get_curr(self.z0)
@@ -131,7 +132,7 @@ class MicrInst(QMainWindow):
         self.curr_plot.setLabel('left', "I", units='A')
         self.curr_plot.setLabel('bottom', "z", units='m')
         self.curr_plot.setRange(yRange=[0, 1])
-        self.curr_plot.setRange(xRange=[-8, 8])
+        self.curr_plot.setRange(xRange=[-3, 3])
 
         self.plot_window.nextRow()
         # momentum spread
@@ -146,7 +147,7 @@ class MicrInst(QMainWindow):
         self.output.setLayout(p)
         p.addWidget(self.plot_window)
 
-    def cav_turns(self, n_turns=2000):
+    def cav_turns(self, n_turns=5000):
         dp2plot = {}
         curr2plot = {}
         wake2plot = {}
@@ -197,7 +198,7 @@ class MicrInst(QMainWindow):
 
         curr_z, I = self.curr2plot[self.spin_turn.value()]
         self.curr_plot.clear()
-        self.curr_plot.plot(curr_z, -I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
+        self.curr_plot.plot(curr_z, I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
         # self.curr_plot.plot(z)
 
         zv, v = self.wake2plot[self.spin_turn.value()]
