@@ -5,6 +5,7 @@ from PyQt5 import uic
 import sys
 import numpy as np
 import pyqtgraph as pg
+import math
 # import pyximport; pyximport.install()
 # import cav_turn
 
@@ -39,14 +40,18 @@ class MicrInst(QMainWindow):
         self.Q = self.spin_Q.value()
 
         # Electron beam def
-        self.custom_dist = 'default'
+        self.custom_dist = 'linac_beam'
         self.Ne = 2e10  # particles number
-        self.N = 5000   # particles number in this simulation
+        self.N = 6000   # particles number in this simulation
 
         self.sigma_z = 0.6  # m
         self.sigma_dp = 0.004   # momentum spread
         # initial beam
         self.beam_particles_dist()
+
+        # measured beam profiles
+        mes_data = np.loadtxt('exclusive_profs.txt')
+        self.mes_profs = {101: mes_data[0], 501: mes_data[1], 801: mes_data[2], 1601: mes_data[3]}
 
         self.wake2plot, self.curr2plot, self.dp2plot = self.cav_turns(self.spin_n_turns.value())
 
@@ -70,24 +75,31 @@ class MicrInst(QMainWindow):
     def beam_particles_dist(self):
         if self.custom_dist == 'default':
             self.dz = 0.03
-            self.sigma_z = 1
+            self.sigma_z = 0.3
             self.z0 = np.random.normal(scale=self.sigma_z, size=self.N)
         elif self.custom_dist == 'linac_beam':
-            n_local = int(self.N / 15)  # I wanna see 15 bunches
-            self.N = n_local * 15
+            # n_local = int(self.N / 15)  # I wanna see 15 bunches
+            # self.N = n_local * 15
             self.dz = 0.006
-            self.sigma_z = 0.0006
-            curr_z0 = np.array([])
-            for i in range(-7, 8):
-                curr_z0 = np.append(curr_z0, np.random.normal(loc=0.105*i, scale=self.sigma_z, size=n_local))
-            self.z0 = curr_z0
+            # self.sigma_z = 0.0006
+            # curr_z0 = np.array([])
+            # self.modul = np.random.normal(loc=0, scale=0.25, size=self.N)
+            # self.hist, self.bins = np.histogram(self.modul, bins=15)
+            # self.hist = [1, 10, 17, 93, 303, 597, 1006, 1233, 1179, 829, 475, 187, 56, 11, 3]
+            # print(self.hist)
+            # for i in range(-7, 8):
+                # curr_z0 = np.append(curr_z0, np.random.normal(loc=0.105*i, scale=self.sigma_z, size=self.hist[i+7]))
+            # self.z0 = curr_z0
+            self.z0 = np.loadtxt('model_linac.txt')
+            # np.savetxt('model_linac.txt', curr_z0)
         else:
             print('u should not be here')
-        self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
+        # self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
+        # np.savetxt('model_linac_dp.txt', self.dp0)
+        self.dp0 = np.loadtxt('model_linac_dp.txt')
 
         # init beam
         self.curr_z, self.I = self.get_curr(self.z0)
-
         # init wake
         self.xi = np.linspace(-1 * self.L_wake, 0, int(self.L_wake / self.dz))
         self.wake = self.calc_wake(self.xi)
@@ -96,7 +108,7 @@ class MicrInst(QMainWindow):
         self.v = - np.convolve(self.wake, self.I) * self.dz / self.c
         self.zv = np.linspace(max(self.curr_z) - self.dz * len(self.v), max(self.curr_z), len(self.v))
 
-    def get_curr(self, z, z_min=-15, z_max=15):
+    def get_curr(self, z, z_min=-5, z_max=5):
         # all units in meter
         hist, bins = np.histogram(z, range=(z_min, z_max), bins=int((z_max-z_min)/self.dz))
         Qm = self.Qe * self.Ne / self.N
@@ -131,7 +143,7 @@ class MicrInst(QMainWindow):
         self.curr_plot.showGrid(x=True, y=True)
         self.curr_plot.setLabel('left', "I", units='A')
         self.curr_plot.setLabel('bottom', "z", units='m')
-        self.curr_plot.setRange(yRange=[0, 1])
+        self.curr_plot.setRange(yRange=[0, 1.5])
         self.curr_plot.setRange(xRange=[-3, 3])
 
         self.plot_window.nextRow()
@@ -185,8 +197,8 @@ class MicrInst(QMainWindow):
         self.wake_plot.clear()
         self.wake_plot.plot(self.xi, self.wake / 1e12, pen=pg.mkPen('g', width=1))
 
-        # wake_curr convolution
-        self.v = - np.convolve(self.wake, self.I) * self.dz / self.c
+        # # wake_curr convolution
+        # self.v = - np.convolve(self.wake, self.I) * self.dz / self.c
 
         self.wake2plot, self.curr2plot,  self.dp2plot = self.cav_turns(self.spin_n_turns.value())
         self.turn_replot()
@@ -216,6 +228,9 @@ class MicrInst(QMainWindow):
         wake[xi > 0] = 0
 
         return wake
+
+    def optimize(self):
+        pass
 
 
 if __name__ == "__main__":
