@@ -51,8 +51,11 @@ class MicrInst(QMainWindow):
 
         # measured beam profiles
         mes_data = np.loadtxt('exclusive_profs.txt')
-        self.mes_profs = {101: mes_data[0], 501: mes_data[1], 801: mes_data[2], 1601: mes_data[3]}
+        self.mes_profs = {100: mes_data[0], 500: mes_data[1], 800: mes_data[2], 1600: mes_data[3]}
 
+        # self.optimize()
+
+        # sim optimization is under construction
         self.wake2plot, self.curr2plot, self.dp2plot = self.cav_turns(self.spin_n_turns.value())
 
         self.dp_plot.plot(self.z0, 100 * self.dp0, pen=None, symbol='star', symbolSize=5)
@@ -80,7 +83,7 @@ class MicrInst(QMainWindow):
         elif self.custom_dist == 'linac_beam':
             # n_local = int(self.N / 15)  # I wanna see 15 bunches
             # self.N = n_local * 15
-            self.dz = 0.006
+            self.dz = 0.0078125
             # self.sigma_z = 0.0006
             # curr_z0 = np.array([])
             # self.modul = np.random.normal(loc=0, scale=0.25, size=self.N)
@@ -180,7 +183,8 @@ class MicrInst(QMainWindow):
             dp = dp + v_s / self.p0
 
             z = z - self.L*self.alpha_p*dp
-            self.status_bar.showMessage("turn = %g %%" % (100*turn/n_turns))
+            # print("turn = %g %%" % (100*turn/n_turns))
+            # self.status_bar.showMessage("turn = %g %%" % (100*turn/n_turns))
         return wake2plot, curr2plot, dp2plot
 
     def turn_recalc(self):
@@ -229,8 +233,63 @@ class MicrInst(QMainWindow):
 
         return wake
 
-    def optimize(self):
-        pass
+    def optimize(self, f_init=0.6e9, q_init=2.9, r_sh_init=40e3):
+        # 1st opt for freq, then for q, then for r_sh
+        # beam begins with val = 0.04 from curr
+        gamma = 1e11
+        self.Fr = f_init
+        self.Q = q_init
+        self.Rsh = r_sh_init
+
+        q_step = 0.1
+        r_sh_step = 0.1e3
+
+        def aim_func(I, mes_profs):
+            s = 0
+            for k, v in mes_profs.items():
+                s = s + np.sum((v - I[k][1]) ** 2)
+            return s
+
+        # initial step
+        # new culc run for 1601 turn
+        self.wake = self.calc_wake(self.xi)
+        wake, curr, dp = self.cav_turns(1601)
+        criteria = aim_func(curr, self.mes_profs)
+
+        self.Fr += 0.1e9
+        self.wake = self.calc_wake(self.xi)
+        wake, curr, dp = self.cav_turns(1601)
+        crit_new = aim_func(curr, self.mes_profs)
+
+        grad = (crit_new - criteria) / 0.1e9
+
+        # gradient descent
+        step = grad * gamma
+        self.Fr -= step
+        criteria = crit_new
+        for i in range(1, 101):
+            self.Fr = i * 0.1e9
+            self.wake = self.calc_wake(self.xi)
+            wake, curr, dp = self.cav_turns(1601)
+            crit_new = aim_func(curr, self.mes_profs)
+            print(self.Fr/1e9, crit_new)
+        # for i in range(100):
+        #     self.wake = self.calc_wake(self.xi)
+        #     wake, curr, dp = self.cav_turns(1601)
+        #     crit_new = aim_func(curr, self.mes_profs)
+        #     grad1 = (crit_new - criteria) / step
+        #
+        #     gamma = abs(step / (grad1 - grad))
+        #     grad = grad1
+        #     step = grad * gamma
+        #     self.Fr -= step
+        #     criteria = crit_new
+        #     if grad == 0:
+        #         break
+        #     print(self.Fr/1e9, criteria, step/1e9, grad, gamma/1e11)
+
+        print(self.Fr/1e9)
+        sys.exit()
 
 
 if __name__ == "__main__":
