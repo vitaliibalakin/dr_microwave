@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QHBoxLayout
-from PyQt5 import uic
+from PyQt5 import uic, QtGui
 import sys
 import numpy as np
 import pyqtgraph as pg
@@ -39,9 +39,9 @@ class MicrInst(QMainWindow):
         self.Q = self.spin_Q.value()
 
         # Electron beam def
-        self.custom_dist = 'default'
+        self.custom_dist = 'linac_beam'
         self.Ne = 2e10  # particles number
-        self.N = 6000   # particles number in this simulation
+        self.N = 20000   # particles number in this simulation
 
         self.sigma_z = 0.6  # m
         self.sigma_dp = 0.004   # momentum spread
@@ -95,21 +95,22 @@ class MicrInst(QMainWindow):
             # n_local = int(self.N / 15)  # I wanna see 15 bunches
             # self.N = n_local * 15
             self.dz = 0.005
-            # self.sigma_z = 0.0176
-            # curr_z0 = np.array([])
-            # self.modul = np.random.normal(loc=0, scale=0.25, size=self.N)
-            # self.hist, self.bins = np.histogram(self.modul, bins=15)
+            self.sigma_z = 0.0176
+            curr_z0 = np.array([])
+            self.modul = np.random.normal(loc=0, scale=0.25, size=self.N)
+            self.hist, self.bins = np.histogram(self.modul, bins=15)
             # self.hist = [1, 10, 17, 93, 303, 597, 1006, 1233, 1179, 829, 475, 187, 56, 11, 3]
             # print(self.hist)
-            # for i in range(-7, 8):
-            #     curr_z0 = np.append(curr_z0, np.random.normal(loc=0.105*i, scale=self.sigma_z, size=self.hist[i+7]))
-            # self.z0 = curr_z0
-            self.z0 = np.loadtxt('model_linac.txt')
-            self.dp0 = np.loadtxt('model_linac_dp.txt')
+            for i in range(-7, 8):
+                curr_z0 = np.append(curr_z0, np.random.normal(loc=0.105*i, scale=self.sigma_z, size=self.hist[i+7]))
+            print(len(curr_z0))
+            self.z0 = curr_z0
+            # self.z0 = np.loadtxt('model_linac.txt')
+            # self.dp0 = np.loadtxt('model_linac_dp.txt')
             # np.savetxt('model_linac.txt', curr_z0)
         else:
             print('u should not be here')
-        # self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
+        self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
         # np.savetxt('model_linac_dp.txt', self.dp0)
 
 
@@ -135,42 +136,53 @@ class MicrInst(QMainWindow):
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
         pg.setConfigOption('antialias', True)
+        label_style = {'font-size': '16pt'}
+        font = QtGui.QFont()
+        font.setPixelSize(16)
 
         self.plot_window = pg.GraphicsLayoutWidget(parent=self)
         # wake
         self.wake_plot = self.plot_window.addPlot(enableMenu=False)
         self.wake_plot.showGrid(x=True, y=True)
-        self.wake_plot.setLabel('left', "W", units='V/pC')
-        self.wake_plot.setLabel('bottom', "z", units='m')
+        self.wake_plot.setLabel('left', "W", units='V/pC', **label_style)
+        self.wake_plot.setLabel('bottom', "z", units='m', **label_style)
         self.wake_plot.setRange(yRange=[-20, 20])
         self.wake_plot.setRange(xRange=[-10, 0])
+        self.wake_plot.getAxis("bottom").tickFont = font
+        self.wake_plot.getAxis("left").tickFont = font
 
         self.plot_window.nextRow()
         # wake_curr convolve
         self.wake_curr_plot = self.plot_window.addPlot(enableMenu=False)
         self.wake_curr_plot.showGrid(x=True, y=True)
-        self.wake_curr_plot.setLabel('left', "V", units='kV')
-        self.wake_curr_plot.setLabel('bottom', "z", units='m')
+        self.wake_curr_plot.setLabel('left', "V", units='kV', **label_style)
+        self.wake_curr_plot.setLabel('bottom', "z", units='m', **label_style)
         self.wake_curr_plot.setRange(yRange=[-12, 18])
         self.wake_curr_plot.setRange(xRange=[-6, 4])
+        self.wake_curr_plot.getAxis("bottom").tickFont = font
+        self.wake_curr_plot.getAxis("left").tickFont = font
 
         self.plot_window.nextRow()
         # current distribution
         self.curr_plot = self.plot_window.addPlot(enableMenu=False)
         self.curr_plot.showGrid(x=True, y=True)
-        self.curr_plot.setLabel('left', "I", units='A')
-        self.curr_plot.setLabel('bottom', "z", units='m')
-        self.curr_plot.setRange(yRange=[0, 1.5])
-        self.curr_plot.setRange(xRange=[0, 4])
+        self.curr_plot.setLabel('left', "I", units='A', **label_style)
+        self.curr_plot.setLabel('bottom', "z", units='m', **label_style)
+        self.curr_plot.setRange(yRange=[0, 5])
+        self.curr_plot.setRange(xRange=[-1, 1])
+        self.curr_plot.getAxis("bottom").tickFont = font
+        self.curr_plot.getAxis("left").tickFont = font
 
         self.plot_window.nextRow()
         # momentum spread
         self.dp_plot = self.plot_window.addPlot(enableMenu=False)
         self.dp_plot.showGrid(x=True, y=True)
-        self.dp_plot.setLabel('left', "dp/p", units='%')
-        self.dp_plot.setLabel('bottom', "z", units='m')
+        self.dp_plot.setLabel('left', "dp/p (%)", **label_style)
+        self.dp_plot.setLabel('bottom', "z", units='m', **label_style)
         self.dp_plot.setRange(yRange=[-1.5, 1.5])
-        self.dp_plot.setRange(xRange=[-8, 8])
+        self.dp_plot.setRange(xRange=[-6, 6])
+        self.dp_plot.getAxis("bottom").tickFont = font
+        self.dp_plot.getAxis("left").tickFont = font
 
         p = QHBoxLayout()
         self.output.setLayout(p)
