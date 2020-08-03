@@ -13,16 +13,16 @@ class Plot:
         pg.setConfigOption('foreground', 'k')
         pg.setConfigOption('antialias', True)
 
-        data = np.loadtxt('func_vs_q.txt')
+        data = np.loadtxt('func_vs_freq.txt')
 
         self.plot_win = pg.GraphicsWindow()
         self.func_plot = self.plot_win.addPlot()
         self.func_plot.showGrid(x=True, y=True)
-        self.func_plot.setLabel('bottom', "Q")#, units='GHz')
+        self.func_plot.setLabel('bottom', "F", units='GHz')
         self.func_plot.setLabel('left', "\u03C6", units='a.u.')
         self.func_plot.addLegend(offset=(100, 10))
 
-        self.func_plot.plot(data[0], data[1], pen=pg.mkPen('b', width=2), name='Rs = 57 kOhm, F = 0.42 GHz')
+        self.func_plot.plot(data[0], data[1], pen=pg.mkPen('b', width=2), name='Q = 5.2, Rsh = 39 kOhm')
 
 
 if __name__ == "__main__":

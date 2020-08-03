@@ -20,13 +20,13 @@ class MicrInst(QMainWindow):
         self.c = 299792458  # m/s
         self.mc = 0.511e6   # eV/c
         self.Qe = 1.60217662e-19    # elementary charge in Coulombs
-        self.p0 = 400e6  # eV/c
+        self.p0 = 392e6  # eV/c
         self.L = 27  # m, damping ring perimeter
         # self.alpha_p = 1 / 36 - 1 / ((self.p0/self.mc)**2)  # momentum compactor factor
         self.h = 1
         self.eVrf = 9.51e3  # eV, RF voltage
-        self.sr_dump = 1.8e3  # eV, SR dumping
-        self.phi0 = np.pi / 2
+        self.sr_dump = 1.878e3  # eV, SR dumping
+        self.phi0 = np.arccos(self.sr_dump/self.eVrf)
         self.dz = 0.03
 
         # wake properties
@@ -39,12 +39,12 @@ class MicrInst(QMainWindow):
         self.Q = self.spin_Q.value()
 
         # Electron beam def
-        self.custom_dist = 'linac_beam'
-        self.Ne = 2e10  # particles number
+        self.custom_dist = 'default'
+        self.Ne = 1e10  # particles number
         self.N = 20000   # particles number in this simulation
 
-        self.sigma_z = 0.6  # m
-        self.sigma_dp = 0.004   # momentum spread
+        self.sigma_z = 0.3  # m
+        self.sigma_dp = 3.5e-4   # momentum spread
         # initial beam
         self.beam_particles_dist()
 
@@ -66,12 +66,12 @@ class MicrInst(QMainWindow):
         # self.optimize()
 
         # sim optimization is under construction
-        self.wake2plot, self.curr2plot, self.dp2plot = self.cav_turns(self.spin_n_turns.value())
-
-        self.dp_plot.plot(self.z0, 100 * self.dp0, pen=None, symbol='star', symbolSize=5)
-        self.curr_plot.plot(self.curr_z, self.I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
-        self.wake_plot.plot(self.xi, self.wake / 1e12, pen=pg.mkPen('g', width=3))
-        self.wake_curr_plot.plot(self.zv, self.v / 1e3, pen=pg.mkPen('r', width=3))
+        # self.wake2plot, self.curr2plot, self.dp2plot = self.cav_turns(self.spin_n_turns.value())
+        #
+        # self.dp_plot.plot(self.z0, 100 * self.dp0, pen=None, symbol='star', symbolSize=5)
+        # self.curr_plot.plot(self.curr_z, self.I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
+        # self.wake_plot.plot(self.xi, self.wake / 1e12, pen=pg.mkPen('g', width=3))
+        # self.wake_curr_plot.plot(self.zv, self.v / 1e3, pen=pg.mkPen('r', width=3))
 
         # callbacks
         self.button_calculate.clicked.connect(self.turn_recalc)
@@ -88,16 +88,16 @@ class MicrInst(QMainWindow):
     def beam_particles_dist(self):
         if self.custom_dist == 'default':
             self.dz = 0.03
-            self.sigma_z = 0.3
+            self.sigma_z = 0.2
             self.z0 = np.random.normal(scale=self.sigma_z, size=self.N)
             self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
         elif self.custom_dist == 'linac_beam':
             # n_local = int(self.N / 15)  # I wanna see 15 bunches
             # self.N = n_local * 15
             self.dz = 0.005
-            self.sigma_z = 0.0176
+            self.sigma_z = 3e-3
             curr_z0 = np.array([])
-            self.modul = np.random.normal(loc=0, scale=0.25, size=self.N)
+            self.modul = np.random.normal(loc=0, scale=0.46, size=self.N)
             self.hist, self.bins = np.histogram(self.modul, bins=15)
             # self.hist = [1, 10, 17, 93, 303, 597, 1006, 1233, 1179, 829, 475, 187, 56, 11, 3]
             # print(self.hist)
@@ -111,6 +111,7 @@ class MicrInst(QMainWindow):
         else:
             print('u should not be here')
         self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
+        print(self.dp0)
         # np.savetxt('model_linac_dp.txt', self.dp0)
 
 
@@ -168,8 +169,8 @@ class MicrInst(QMainWindow):
         self.curr_plot.showGrid(x=True, y=True)
         self.curr_plot.setLabel('left', "I", units='A', **label_style)
         self.curr_plot.setLabel('bottom', "z", units='m', **label_style)
-        self.curr_plot.setRange(yRange=[0, 5])
-        self.curr_plot.setRange(xRange=[-1, 1])
+        self.curr_plot.setRange(yRange=[0, 2])
+        self.curr_plot.setRange(xRange=[-4, 4])
         self.curr_plot.getAxis("bottom").tickFont = font
         self.curr_plot.getAxis("left").tickFont = font
 
@@ -199,14 +200,15 @@ class MicrInst(QMainWindow):
             dp2plot[turn] = (z, dp)
             phi = self.phi0 - 2*np.pi*self.h*z/self.L
             # cavity
-            dp = dp + self.eVrf*np.cos(phi)/self.p0 - self.sr_dump/self.p0
+            dp = dp + self.eVrf*np.cos(phi)/self.p0 - self.sr_dump*(1 + dp)**4/self.p0
+            # print(self.sr_dump/self.p0)
             # wakefield
             curr_z, I = self.get_curr(z)
             curr2plot[turn] = (curr_z, I)
             v = - np.convolve(self.wake, I) * self.dz / self.c
             wake2plot[turn] = (self.zv, v)
             v_s = np.interp(z, self.zv, v)
-            dp = dp + v_s / self.p0
+            # dp = dp + v_s / self.p0
 
             z = z - self.L*self.alpha_p*dp
             # print("turn = %g %%" % (100*turn/n_turns))
@@ -259,7 +261,7 @@ class MicrInst(QMainWindow):
 
         return wake
 
-    def optimize(self, f_init=0.42e9, q_init=8.7, r_sh_init=57e3):
+    def optimize(self, f_init=2.5e9, q_init=5.2, r_sh_init=3.9e4):
         # 1st opt for freq, then for q, then for r_sh
         # beam begins with val = 0.04 from curr
         gamma = 1e11
@@ -305,12 +307,18 @@ class MicrInst(QMainWindow):
         x_arr = np.zeros([100, ])
         Psy = np.zeros([100, ])
         for i in range(1, 101):
-            self.Fr = 1e7 * i
+            self.Fr = 1e8 * i
+            # self.Rsh = 1e3 * i
+            # self.Q = 1 + 0.1 * i
             self.wake = self.calc_wake(self.xi)
             wake, curr, dp = self.cav_turns(3201)
             crit_new = aim_func(curr, self.mes_profs)
             print(self.Fr/1e9, crit_new)
+            # print(self.Rsh, crit_new)
+            # print(self.Q, crit_new)
             x_arr[i-1] = self.Fr/1e9
+            # x_arr[i-1] = self.Rsh
+            # x_arr[i-1] = self.Q
             Psy[i-1] = crit_new
         # for i in range(100):
         #     self.wake = self.calc_wake(self.xi)
