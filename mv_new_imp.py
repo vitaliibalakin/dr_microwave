@@ -33,10 +33,16 @@ class MicrInst(QMainWindow):
         self.wake = []
         self.v = []
         self.L_wake = 10  # m
-        self.Fr = self.spin_freq.value() * 1e9
-        self.Rsh = self.spin_Rsh.value() * 1e3
         self.alpha_p = self.spin_alpha_p.value()
-        self.Q = self.spin_Q.value()
+        # ring impedance
+        self.w1 = 2 * np.pi * 2.7 * 1e9
+        self.R1 = 11 * 1e3
+        self.Q1 = 3.5
+        # additional new cavity parameters
+        self.w2 = 2 * np.pi * self.spin_freq.value() * 1e9
+        self.R2 = self.spin_Rsh.value() * 1e3
+        self.Q2 = self.spin_Q.value()
+
 
         # Electron beam def
         self.custom_dist = 'default'
@@ -47,31 +53,6 @@ class MicrInst(QMainWindow):
         self.sigma_dp = 3.5e-4   # momentum spread
         # initial beam
         self.beam_particles_dist()
-
-        # measured beam profiles
-        # mes_data = np.loadtxt('exclusive_profs.txt')
-        mes_data = [0, 0, 0, 0, 0]
-        i = 0
-        f = open('exclusive_profs.txt', 'r')
-        for line in f.readlines():
-            mes_data[i] = np.asarray(line.split(' '), dtype=np.float64)
-            i += 1
-        # print(mes_data)
-        self.mes_profs = {100: mes_data[0], 500: mes_data[1], 800: mes_data[2], 1600: mes_data[3], 3200: mes_data[4]}
-        # self.dp_plot.plot(mes_data[4])
-        # self.curr_plot.plot(mes_data[1])
-        # self.wake_plot.plot(mes_data[2])
-        # self.wake_curr_plot.plot(mes_data[3])
-
-        # self.optimize()
-
-        # sim optimization is under construction
-        # self.wake2plot, self.curr2plot, self.dp2plot = self.cav_turns(self.spin_n_turns.value())
-        #
-        # self.dp_plot.plot(self.z0, 100 * self.dp0, pen=None, symbol='star', symbolSize=5)
-        # self.curr_plot.plot(self.curr_z, self.I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
-        # self.wake_plot.plot(self.xi, self.wake / 1e12, pen=pg.mkPen('g', width=3))
-        # self.wake_curr_plot.plot(self.zv, self.v / 1e3, pen=pg.mkPen('r', width=3))
 
         self.wake2plot = {}
         self.curr2plot = {}
@@ -215,17 +196,17 @@ class MicrInst(QMainWindow):
 
             z = z - self.L*self.alpha_p*dp
             print("turn = %g %%" % (100*turn/n_turns))
-            self.status_bar.showMessage("turn = %g %%" % (100*turn/n_turns))
+            # self.status_bar.showMessage("turn = %g %%" % (100*turn/n_turns))
         return wake2plot, curr2plot, dp2plot
 
     def turn_recalc(self):
         self.spin_turn.setMaximum(self.spin_n_turns.value())
         self.slider_turn.setMaximum(self.spin_n_turns.value())
 
-        self.Fr = self.spin_freq.value() * 1e9
-        self.Rsh = self.spin_Rsh.value() * 1e3
+        self.F2 = 2 * np.pi * self.spin_freq.value() * 1e9
+        self.R2 = self.spin_Rsh.value() * 1e3
+        self.Q2 = self.spin_Q.value()
         self.alpha_p = self.spin_alpha_p.value()
-        self.Q = self.spin_Q.value()
 
         # wake
         self.wake = self.calc_wake(self.xi)
@@ -256,95 +237,22 @@ class MicrInst(QMainWindow):
         self.wake_curr_plot.plot(zv, v / 1e3, pen=pg.mkPen('r', width=1))
 
     def calc_wake(self, xi):
-        wr = 2 * np.pi * self.Fr
-        alpha = wr / (2 * self.Q)
-        wr_1 = wr * np.sqrt(1 - 1 / (4 * self.Q ** 2))
-        print(alpha)
-        wake = 2 * alpha * self.Rsh * np.exp(alpha * xi / self.c) * (np.cos(wr_1 * xi / self.c) + (alpha / wr_1) *
-                                                                     np.sin(wr_1 * xi / self.c))
-        wake[xi == 0] = alpha * self.Rsh
+        Rsh = self.R1 * self.R2 / (self.R1 + self.R2)
+        w_sum = np.sqrt((self.Q1*self.w1/self.R1 + self.Q2*self.w2/self.R2) /
+                        (self.Q1/self.w1/self.R1 + self.Q2/self.w2/self.R2))
+        alpha = self.w1 * self.w2 * (self.R1 + self.R2) / 2 / (self.R2*self.w2*self.Q1 + self.R1*self.w1*self.Q2)
+        w_hatch = np.sqrt(w_sum ** 2 - alpha ** 2)
+        print(Rsh, alpha, w_sum, w_sum / 2 / alpha)
+
+        wake = 2 * alpha * Rsh * np.exp(alpha * xi / self.c) * (np.cos(w_hatch * xi / self.c) + (alpha / w_hatch) *
+                                                                np.sin(w_hatch * xi / self.c))
+        wake[xi == 0] = alpha * Rsh
         wake[xi > 0] = 0
 
         return wake
 
-    def optimize(self, f_init=2.5e9, q_init=5.2, r_sh_init=3.9e4):
-        # 1st opt for freq, then for q, then for r_sh
-        # beam begins with val = 0.04 from curr
-        gamma = 1e11
-        self.Fr = f_init
-        self.Q = q_init
-        self.Rsh = r_sh_init
-
-        q_step = 0.1
-        r_sh_step = 0.1e3
-
-        def aim_func(I, mes_profs):
-            s = 0
-            for k, v in mes_profs.items():
-                data = I[k][1]
-                fp = data[np.where(data > 0.04)[0][0]:np.where(data > 0.04)[0][-1]]
-                xp = 0.005 * np.arange(len(fp))
-                x = np.linspace(0, max(xp), len(v), endpoint=True)
-                shared = np.interp(x, xp, fp)
-                s = s + np.sum((v - shared) ** 2)
-            # self.curr_plot.clear()
-            # self.wake_plot.clear()
-            # self.curr_plot.plot(x, shared[:-1], stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
-            # self.wake_plot.plot(xp, fp[:-1], stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
-            return s
-
-        # initial step
-        # new culc run for 1601 turn
-        # self.wake = self.calc_wake(self.xi)
-        # wake, curr, dp = self.cav_turns(3201)
-        # criteria = aim_func(curr, self.mes_profs)
-
-        # self.Fr += 0.1e9
-        # self.wake = self.calc_wake(self.xi)
-        # wake, curr, dp = self.cav_turns(3201)
-        # crit_new = aim_func(curr, self.mes_profs)
-
-        # grad = (crit_new - criteria) / 0.1e9
-
-        # gradient descent
-        # step = grad * gamma
-        # self.Fr -= step
-        # criteria = crit_new
-        x_arr = np.zeros([100, ])
-        Psy = np.zeros([100, ])
-        for i in range(1, 101):
-            self.Fr = 1e8 * i
-            # self.Rsh = 1e3 * i
-            # self.Q = 1 + 0.1 * i
-            self.wake = self.calc_wake(self.xi)
-            wake, curr, dp = self.cav_turns(3201)
-            crit_new = aim_func(curr, self.mes_profs)
-            print(self.Fr/1e9, crit_new)
-            # print(self.Rsh, crit_new)
-            # print(self.Q, crit_new)
-            x_arr[i-1] = self.Fr/1e9
-            # x_arr[i-1] = self.Rsh
-            # x_arr[i-1] = self.Q
-            Psy[i-1] = crit_new
-        # for i in range(100):
-        #     self.wake = self.calc_wake(self.xi)
-        #     wake, curr, dp = self.cav_turns(1601)
-        #     crit_new = aim_func(curr, self.mes_profs)
-        #     grad1 = (crit_new - criteria) / step
-        #
-        #     gamma = abs(step / (grad1 - grad))
-        #     grad = grad1
-        #     step = grad * gamma
-        #     self.Fr -= step
-        #     criteria = crit_new
-        #     if grad == 0:
-        #         break
-        #     print(self.Fr/1e9, criteria, step/1e9, grad, gamma/1e11)
-        np.savetxt('func_vs_freq.txt', np.vstack((x_arr, Psy)))
-        sys.exit()
-
 
 if __name__ == "__main__":
-    app = QApplication(['mv'])
+    app = QApplication(['mv_new'])
     w = MicrInst()
     sys.exit(app.exec_())
