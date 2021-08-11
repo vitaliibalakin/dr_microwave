@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QHBoxLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QHBoxLayout, QGridLayout
 from PyQt5 import uic, QtGui
 import sys
 import numpy as np
@@ -30,19 +30,19 @@ class MicrInst(QMainWindow):
         self.dz = 0.03
 
         # wake properties
-        self.wake = []
+        self.wake1 = []
+        self.wake2 = []
         self.v = []
         self.L_wake = 10  # m
         self.alpha_p = self.spin_alpha_p.value()
         # ring impedance
-        self.w1 = 2 * np.pi * 2.7 * 1e9
-        self.R1 = 11 * 1e3
-        self.Q1 = 3.5
+        self.w1 = 2 * np.pi * 2.6 * 1e9  # 2.6 GHz
+        self.R1 = 39 * 1e3      # 39 kOhm
+        self.Q1 = 4.2       # 4.2
         # additional new cavity parameters
         self.w2 = 2 * np.pi * self.spin_freq.value() * 1e9
         self.R2 = self.spin_Rsh.value() * 1e3
         self.Q2 = self.spin_Q.value()
-
 
         # Electron beam def
         self.custom_dist = 'default'
@@ -54,7 +54,8 @@ class MicrInst(QMainWindow):
         # initial beam
         self.beam_particles_dist()
 
-        self.wake2plot = {}
+        self.wake1_to_plot = {}
+        self.wake2_to_plot = {}
         self.curr2plot = {}
         self.dp2plot = {}
 
@@ -103,11 +104,6 @@ class MicrInst(QMainWindow):
         self.curr_z, self.I = self.get_curr(self.z0)
         # init wake
         self.xi = np.linspace(-1 * self.L_wake, 0, int(self.L_wake / self.dz))
-        self.wake = self.calc_wake(self.xi)
-        # init wake convolution
-
-        self.v = - np.convolve(self.wake, self.I) * self.dz / self.c
-        self.zv = np.linspace(max(self.curr_z) - self.dz * len(self.v), max(self.curr_z), len(self.v))
 
     def get_curr(self, z, z_min=-10, z_max=10):
         # all units in meter
@@ -127,7 +123,7 @@ class MicrInst(QMainWindow):
 
         self.plot_window = pg.GraphicsLayoutWidget(parent=self)
         # wake
-        self.wake_plot = self.plot_window.addPlot(enableMenu=False)
+        self.wake_plot = self.plot_window.addPlot(row=0, col=0, colspan=2, enableMenu=False)
         self.wake_plot.showGrid(x=True, y=True)
         self.wake_plot.setLabel('left', "W", units='V/pC', **label_style)
         self.wake_plot.setLabel('bottom', "z", units='m', **label_style)
@@ -136,20 +132,28 @@ class MicrInst(QMainWindow):
         self.wake_plot.getAxis("bottom").tickFont = font
         self.wake_plot.getAxis("left").tickFont = font
 
-        self.plot_window.nextRow()
         # wake_curr convolve
-        self.wake_curr_plot = self.plot_window.addPlot(enableMenu=False)
-        self.wake_curr_plot.showGrid(x=True, y=True)
-        self.wake_curr_plot.setLabel('left', "V", units='kV', **label_style)
-        self.wake_curr_plot.setLabel('bottom', "z", units='m', **label_style)
-        self.wake_curr_plot.setRange(yRange=[-12, 18])
-        self.wake_curr_plot.setRange(xRange=[-6, 4])
-        self.wake_curr_plot.getAxis("bottom").tickFont = font
-        self.wake_curr_plot.getAxis("left").tickFont = font
+        self.wake1_curr_plot = self.plot_window.addPlot(1, 0, enableMenu=False)
+        self.wake1_curr_plot.showGrid(x=True, y=True)
+        self.wake1_curr_plot.setLabel('left', "V", units='kV', **label_style)
+        self.wake1_curr_plot.setLabel('bottom', "z", units='m', **label_style)
+        self.wake1_curr_plot.setRange(yRange=[-12, 18])
+        self.wake1_curr_plot.setRange(xRange=[-6, 4])
+        self.wake1_curr_plot.getAxis("bottom").tickFont = font
+        self.wake1_curr_plot.getAxis("left").tickFont = font
 
-        self.plot_window.nextRow()
+        # wake_curr convolve 2
+        self.wake2_curr_plot = self.plot_window.addPlot(1, 1, enableMenu=False)
+        self.wake2_curr_plot.showGrid(x=True, y=True)
+        self.wake2_curr_plot.setLabel('left', "V", units='kV', **label_style)
+        self.wake2_curr_plot.setLabel('bottom', "z", units='m', **label_style)
+        self.wake2_curr_plot.setRange(yRange=[-12, 18])
+        self.wake2_curr_plot.setRange(xRange=[-6, 4])
+        self.wake2_curr_plot.getAxis("bottom").tickFont = font
+        self.wake2_curr_plot.getAxis("left").tickFont = font
+
         # current distribution
-        self.curr_plot = self.plot_window.addPlot(enableMenu=False)
+        self.curr_plot = self.plot_window.addPlot(row=2, col=0, colspan=2, enableMenu=False)
         self.curr_plot.showGrid(x=True, y=True)
         self.curr_plot.setLabel('left', "I", units='A', **label_style)
         self.curr_plot.setLabel('bottom', "z", units='m', **label_style)
@@ -158,9 +162,8 @@ class MicrInst(QMainWindow):
         self.curr_plot.getAxis("bottom").tickFont = font
         self.curr_plot.getAxis("left").tickFont = font
 
-        self.plot_window.nextRow()
         # momentum spread
-        self.dp_plot = self.plot_window.addPlot(enableMenu=False)
+        self.dp_plot = self.plot_window.addPlot(row=3, col=0, colspan=2, enableMenu=False)
         self.dp_plot.showGrid(x=True, y=True)
         self.dp_plot.setLabel('left', "dp/p (%)", **label_style)
         self.dp_plot.setLabel('bottom', "z", units='m', **label_style)
@@ -176,7 +179,8 @@ class MicrInst(QMainWindow):
     def cav_turns(self, n_turns=5000):
         dp2plot = {}
         curr2plot = {}
-        wake2plot = {}
+        wake1_to_plot = {}
+        wake2_to_plot = {}
         z = self.z0
         dp = self.dp0
 
@@ -185,19 +189,27 @@ class MicrInst(QMainWindow):
             phi = self.phi0 - 2*np.pi*self.h*z/self.L
             # cavity
             dp = dp + self.eVrf*np.cos(phi)/self.p0 - self.sr_dump*(1 + dp)**4/self.p0
-            # print(self.sr_dump/self.p0)
-            # wakefield
+            # wakefield from all ring + cav
             curr_z, I = self.get_curr(z)
             curr2plot[turn] = (curr_z, I)
-            v = - np.convolve(self.wake, I) * self.dz / self.c
-            wake2plot[turn] = (self.zv, v)
-            v_s = np.interp(z, self.zv, v)
+            v = - np.convolve(self.wake1, I) * self.dz / self.c
+            zv = np.linspace(max(curr_z) - self.dz * len(v), max(curr_z), len(v))
+            wake1_to_plot[turn] = (zv, v)
+            v_s = np.interp(z, zv, v)
             dp = dp + v_s / self.p0
+            z = z - self.alpha_p * dp * (self.L)
 
-            z = z - self.L*self.alpha_p*dp
+            # wakefield from new cavity
+            # curr_z, I = self.get_curr(z)
+            # v = - np.convolve(self.wake2, I) * self.dz / self.c
+            # zv = np.linspace(max(curr_z) - self.dz * len(v), max(curr_z), len(v))
+            # wake2_to_plot[turn] = (zv, v)
+            # v_s = np.interp(z, zv, v)
+            # dp = dp + v_s / self.p0
+            # z = z - self.alpha_p * dp * (self.L/2)
+
             print("turn = %g %%" % (100*turn/n_turns))
-            # self.status_bar.showMessage("turn = %g %%" % (100*turn/n_turns))
-        return wake2plot, curr2plot, dp2plot
+        return wake1_to_plot, wake2_to_plot, curr2plot, dp2plot
 
     def turn_recalc(self):
         self.spin_turn.setMaximum(self.spin_n_turns.value())
@@ -209,47 +221,57 @@ class MicrInst(QMainWindow):
         self.alpha_p = self.spin_alpha_p.value()
 
         # wake
-        self.wake = self.calc_wake(self.xi)
+        self.wake1, self.wake2 = self.calc_wake(self.xi)
         self.wake_plot.clear()
-        self.wake_plot.plot(self.xi, self.wake / 1e12, pen=pg.mkPen('g', width=1))
+        self.wake_plot.plot(self.xi, self.wake2 / 1e12, pen=pg.mkPen('g', width=1))
 
-        # # wake_curr convolution
-        # self.v = - np.convolve(self.wake, self.I) * self.dz / self.c
-        self.wake2plot.clear()
+        self.wake1_to_plot.clear()
+        self.wake2_to_plot.clear()
         self.curr2plot.clear()
         self.dp2plot.clear()
 
-        self.wake2plot, self.curr2plot,  self.dp2plot = self.cav_turns(self.spin_n_turns.value())
+        self.wake1_to_plot, self.wake2_to_plot, self.curr2plot,  self.dp2plot = \
+            self.cav_turns(self.spin_n_turns.value())
         self.turn_replot()
 
     def turn_replot(self):
-        z, dp = self.dp2plot[self.spin_turn.value()]
+        turn = self.spin_turn.value()
+        z, dp = self.dp2plot[turn]
         # self.dp_plot.clear()
         # self.dp_plot.plot(z, 100 * dp, pen=None, symbol='star', symbolSize=5)
 
-        curr_z, I = self.curr2plot[self.spin_turn.value()]
+        curr_z, I = self.curr2plot[turn]
         self.curr_plot.clear()
         self.curr_plot.plot(curr_z, I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
         # self.curr_plot.plot(z)
 
-        zv, v = self.wake2plot[self.spin_turn.value()]
-        self.wake_curr_plot.clear()
-        self.wake_curr_plot.plot(zv, v / 1e3, pen=pg.mkPen('r', width=1))
+        zv, v = self.wake1_to_plot[turn]
+        self.wake1_curr_plot.clear()
+        self.wake1_curr_plot.plot(zv, v / 1e3, pen=pg.mkPen('r', width=1))
+        # zv, v = self.wake2_to_plot[turn]
+        # self.wake2_curr_plot.clear()
+        # self.wake2_curr_plot.plot(zv, v / 1e3, pen=pg.mkPen('r', width=1))
 
     def calc_wake(self, xi):
-        Rsh = self.R1 * self.R2 / (self.R1 + self.R2)
-        w_sum = np.sqrt((self.Q1*self.w1/self.R1 + self.Q2*self.w2/self.R2) /
-                        (self.Q1/self.w1/self.R1 + self.Q2/self.w2/self.R2))
-        alpha = self.w1 * self.w2 * (self.R1 + self.R2) / 2 / (self.R2*self.w2*self.Q1 + self.R1*self.w1*self.Q2)
-        w_hatch = np.sqrt(w_sum ** 2 - alpha ** 2)
-        print(Rsh, alpha, w_sum, w_sum / 2 / alpha)
+        # wake from old system
+        alpha1 = self.w1 / 2 / self.Q1
+        w_hatch1 = np.sqrt(self.w1**2 - alpha1**2)
 
-        wake = 2 * alpha * Rsh * np.exp(alpha * xi / self.c) * (np.cos(w_hatch * xi / self.c) + (alpha / w_hatch) *
-                                                                np.sin(w_hatch * xi / self.c))
-        wake[xi == 0] = alpha * Rsh
-        wake[xi > 0] = 0
+        wake1 = 2 * alpha1 * self.R1 * np.exp(alpha1 * xi / self.c) *\
+                (np.cos(w_hatch1 * xi / self.c) + (alpha1 / w_hatch1) * np.sin(w_hatch1 * xi / self.c))
+        wake1[xi == 0] = alpha1 * self.R1
+        wake1[xi > 0] = 0
 
-        return wake
+        # wake from new inserted device (cavity)
+        alpha2 = self.w2 / 2 / self.Q2
+        w_hatch2 = np.sqrt(self.w2 ** 2 - alpha2 ** 2)
+
+        wake2 = 2 * alpha2 * self.R2 * np.exp(alpha2 * xi / self.c) * \
+                (np.cos(w_hatch2 * xi / self.c) + (alpha2 / w_hatch2) * np.sin(w_hatch2 * xi / self.c))
+        wake2[xi == 0] = alpha2 * self.R2
+        wake2[xi > 0] = 0
+
+        return wake1, wake2
 
 
 if __name__ == "__main__":

@@ -122,11 +122,6 @@ class MicrInst(QMainWindow):
         self.curr_z, self.I = self.get_curr(self.z0)
         # init wake
         self.xi = np.linspace(-1 * self.L_wake, 0, int(self.L_wake / self.dz))
-        self.wake = self.calc_wake(self.xi)
-        # init wake convolution
-
-        self.v = - np.convolve(self.wake, self.I) * self.dz / self.c
-        self.zv = np.linspace(max(self.curr_z) - self.dz * len(self.v), max(self.curr_z), len(self.v))
 
     def get_curr(self, z, z_min=-10, z_max=10):
         # all units in meter
@@ -204,18 +199,17 @@ class MicrInst(QMainWindow):
             phi = self.phi0 - 2*np.pi*self.h*z/self.L
             # cavity
             dp = dp + self.eVrf*np.cos(phi)/self.p0 - self.sr_dump*(1 + dp)**4/self.p0
-            # print(self.sr_dump/self.p0)
             # wakefield
             curr_z, I = self.get_curr(z)
             curr2plot[turn] = (curr_z, I)
             v = - np.convolve(self.wake, I) * self.dz / self.c
-            wake2plot[turn] = (self.zv, v)
-            v_s = np.interp(z, self.zv, v)
+            zv = np.linspace(max(curr_z) - self.dz * len(v), max(curr_z), len(v))
+            wake2plot[turn] = (zv, v)
+            v_s = np.interp(z, zv, v)
             dp = dp + v_s / self.p0
-
             z = z - self.L*self.alpha_p*dp
+
             print("turn = %g %%" % (100*turn/n_turns))
-            self.status_bar.showMessage("turn = %g %%" % (100*turn/n_turns))
         return wake2plot, curr2plot, dp2plot
 
     def turn_recalc(self):
