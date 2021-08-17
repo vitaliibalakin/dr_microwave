@@ -24,7 +24,7 @@ class MicrInst(QMainWindow):
         self.L = 27  # m, damping ring perimeter
         # self.alpha_p = 1 / 36 - 1 / ((self.p0/self.mc)**2)  # momentum compactor factor
         self.h = 64
-        self.eVrf = 800e3  # 9.51e3  # eV, RF voltage
+        self.eVrf = 9.51e3  # 9.51e3  # eV, RF voltage
         self.sr_dump = 1.878e3  # eV, SR dumping
         self.phi0 = np.arccos(self.sr_dump/self.eVrf)
         self.dz = 0.03
