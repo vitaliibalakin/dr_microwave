@@ -55,7 +55,7 @@
          <item>
           <widget class="QSlider" name="slider_turn">
            <property name="minimum">
-            <number>1</number>
+            <number>0</number>
            </property>
            <property name="maximum">
             <number>2000</number>
@@ -65,6 +65,12 @@
            </property>
            <property name="pageStep">
             <number>10</number>
+           </property>
+           <property name="value">
+            <number>0</number>
+           </property>
+           <property name="sliderPosition">
+            <number>0</number>
            </property>
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
@@ -79,10 +85,10 @@
           <number>2000</number>
          </property>
          <property name="singleStep">
-          <number>10</number>
+          <number>1</number>
          </property>
          <property name="value">
-          <number>1</number>
+          <number>0</number>
          </property>
         </widget>
        </item>
@@ -136,7 +142,7 @@
           <double>5.000000000000000</double>
          </property>
          <property name="value">
-          <double>2500.000000000000000</double>
+          <double>2310.000000000000000</double>
          </property>
         </widget>
        </item>
@@ -187,7 +193,7 @@
           <number>100000</number>
          </property>
          <property name="value">
-          <number>1000</number>
+          <number>3500</number>
          </property>
         </widget>
        </item>
@@ -252,6 +258,19 @@
       </layout>
      </item>
     </layout>
+   </widget>
+   <widget class="QPushButton" name="btn_phase_space">
+    <property name="geometry">
+     <rect>
+      <x>860</x>
+      <y>280</y>
+      <width>291</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Plot phase space</string>
+    </property>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">

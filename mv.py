@@ -40,11 +40,11 @@ class MicrInst(QMainWindow):
 
         # Electron beam def
         self.custom_dist = 'default'
-        self.Ne = 1e10  # particles number
+        self.Ne = 2e10  # particles number
         self.N = 20000   # particles number in this simulation
 
-        self.sigma_z = 0.3  # m
-        self.sigma_dp = 3.5e-4   # momentum spread
+        self.sigma_z = 0.2  # m
+        self.sigma_dp = 3.5e-3   # momentum spread
         # initial beam
         self.beam_particles_dist()
 
@@ -65,14 +65,6 @@ class MicrInst(QMainWindow):
 
         # self.optimize()
 
-        # sim optimization is under construction
-        # self.wake2plot, self.curr2plot, self.dp2plot = self.cav_turns(self.spin_n_turns.value())
-        #
-        # self.dp_plot.plot(self.z0, 100 * self.dp0, pen=None, symbol='star', symbolSize=5)
-        # self.curr_plot.plot(self.curr_z, self.I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
-        # self.wake_plot.plot(self.xi, self.wake / 1e12, pen=pg.mkPen('g', width=3))
-        # self.wake_curr_plot.plot(self.zv, self.v / 1e3, pen=pg.mkPen('r', width=3))
-
         self.wake2plot = {}
         self.curr2plot = {}
         self.dp2plot = {}
@@ -81,6 +73,7 @@ class MicrInst(QMainWindow):
         self.button_calculate.clicked.connect(self.turn_recalc)
         self.spin_turn.valueChanged.connect(self.turn_replot)
         self.rb_linac_beam.toggled.connect(self.beam_type)
+        self.btn_phase_space.clicked.connect(self.plot_phase)
         
     def beam_type(self):
         if self.rb_linac_beam.isChecked():
@@ -101,21 +94,21 @@ class MicrInst(QMainWindow):
             self.dz = 0.005
             self.sigma_z = 3e-3
             curr_z0 = np.array([])
+            cur_dp0 = np.array([])
             self.modul = np.random.normal(loc=0, scale=0.46, size=self.N)
             self.hist, self.bins = np.histogram(self.modul, bins=15)
-            # self.hist = [1, 10, 17, 93, 303, 597, 1006, 1233, 1179, 829, 475, 187, 56, 11, 3]
-            # print(self.hist)
             for i in range(-7, 8):
                 curr_z0 = np.append(curr_z0, np.random.normal(loc=0.105*i, scale=self.sigma_z, size=self.hist[i+7]))
-            print(len(curr_z0))
+                cur_dp0 = np.append(cur_dp0, np.random.normal(scale=self.sigma_dp, size=self.hist[i + 7]))
             self.z0 = curr_z0
+            self.dp0 = cur_dp0
+
             # self.z0 = np.loadtxt('model_linac.txt')
             # self.dp0 = np.loadtxt('model_linac_dp.txt')
             # np.savetxt('model_linac.txt', curr_z0)
         else:
             print('u should not be here')
-        self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
-        print(self.dp0)
+        # self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
         # np.savetxt('model_linac_dp.txt', self.dp0)
 
         # init beam
@@ -192,7 +185,7 @@ class MicrInst(QMainWindow):
         curr2plot = {}
         wake2plot = {}
         z = self.z0
-        dp = self.dp0
+        dp = self.dp0.copy()
 
         for turn in range(n_turns + 1):
             dp2plot[turn] = (z, dp)
@@ -235,11 +228,12 @@ class MicrInst(QMainWindow):
         self.wake2plot, self.curr2plot,  self.dp2plot = self.cav_turns(self.spin_n_turns.value())
         self.turn_replot()
 
-    def turn_replot(self):
+    def plot_phase(self):
         z, dp = self.dp2plot[self.spin_turn.value()]
-        # self.dp_plot.clear()
-        # self.dp_plot.plot(z, 100 * dp, pen=None, symbol='star', symbolSize=5)
+        self.dp_plot.clear()
+        self.dp_plot.plot(z, 100 * dp, pen=None, symbol='star', symbolSize=5)
 
+    def turn_replot(self):
         curr_z, I = self.curr2plot[self.spin_turn.value()]
         self.curr_plot.clear()
         self.curr_plot.plot(curr_z, I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
@@ -253,7 +247,6 @@ class MicrInst(QMainWindow):
         wr = 2 * np.pi * self.Fr
         alpha = wr / (2 * self.Q)
         wr_1 = wr * np.sqrt(1 - 1 / (4 * self.Q ** 2))
-        print(alpha)
         wake = 2 * alpha * self.Rsh * np.exp(alpha * xi / self.c) * (np.cos(wr_1 * xi / self.c) + (alpha / wr_1) *
                                                                      np.sin(wr_1 * xi / self.c))
         wake[xi == 0] = alpha * self.Rsh

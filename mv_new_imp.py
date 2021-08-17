@@ -23,8 +23,8 @@ class MicrInst(QMainWindow):
         self.p0 = 392e6  # eV/c
         self.L = 27  # m, damping ring perimeter
         # self.alpha_p = 1 / 36 - 1 / ((self.p0/self.mc)**2)  # momentum compactor factor
-        self.h = 1
-        self.eVrf = 9.51e3  # eV, RF voltage
+        self.h = 64
+        self.eVrf = 800e3  # 9.51e3  # eV, RF voltage
         self.sr_dump = 1.878e3  # eV, SR dumping
         self.phi0 = np.arccos(self.sr_dump/self.eVrf)
         self.dz = 0.03
@@ -46,11 +46,11 @@ class MicrInst(QMainWindow):
 
         # Electron beam def
         self.custom_dist = 'default'
-        self.Ne = 1e10  # particles number
+        self.Ne = 2e10  # particles number
         self.N = 20000   # particles number in this simulation
 
-        self.sigma_z = 0.3  # m
-        self.sigma_dp = 3.5e-4   # momentum spread
+        self.sigma_z = 0.2  # m
+        self.sigma_dp = 3.5e-3   # momentum spread
         # initial beam
         self.beam_particles_dist()
 
@@ -63,6 +63,7 @@ class MicrInst(QMainWindow):
         self.button_calculate.clicked.connect(self.turn_recalc)
         self.spin_turn.valueChanged.connect(self.turn_replot)
         self.rb_linac_beam.toggled.connect(self.beam_type)
+        self.btn_phase_space.clicked.connect(self.plot_phase)
         
     def beam_type(self):
         if self.rb_linac_beam.isChecked():
@@ -123,14 +124,23 @@ class MicrInst(QMainWindow):
 
         self.plot_window = pg.GraphicsLayoutWidget(parent=self)
         # wake
-        self.wake_plot = self.plot_window.addPlot(row=0, col=0, colspan=2, enableMenu=False)
-        self.wake_plot.showGrid(x=True, y=True)
-        self.wake_plot.setLabel('left', "W", units='V/pC', **label_style)
-        self.wake_plot.setLabel('bottom', "z", units='m', **label_style)
-        self.wake_plot.setRange(yRange=[-20, 20])
-        self.wake_plot.setRange(xRange=[-10, 0])
-        self.wake_plot.getAxis("bottom").tickFont = font
-        self.wake_plot.getAxis("left").tickFont = font
+        self.wake1_plot = self.plot_window.addPlot(row=0, col=0, enableMenu=False)
+        self.wake1_plot.showGrid(x=True, y=True)
+        self.wake1_plot.setLabel('left', "W", units='V/pC', **label_style)
+        self.wake1_plot.setLabel('bottom', "z", units='m', **label_style)
+        self.wake1_plot.setRange(yRange=[-20, 20])
+        self.wake1_plot.setRange(xRange=[-10, 0])
+        self.wake1_plot.getAxis("bottom").tickFont = font
+        self.wake1_plot.getAxis("left").tickFont = font
+
+        self.wake2_plot = self.plot_window.addPlot(row=0, col=1, enableMenu=False)
+        self.wake2_plot.showGrid(x=True, y=True)
+        self.wake2_plot.setLabel('left', "W", units='V/pC', **label_style)
+        self.wake2_plot.setLabel('bottom', "z", units='m', **label_style)
+        self.wake2_plot.setRange(yRange=[-20, 20])
+        self.wake2_plot.setRange(xRange=[-10, 0])
+        self.wake2_plot.getAxis("bottom").tickFont = font
+        self.wake2_plot.getAxis("left").tickFont = font
 
         # wake_curr convolve
         self.wake1_curr_plot = self.plot_window.addPlot(1, 0, enableMenu=False)
@@ -183,7 +193,7 @@ class MicrInst(QMainWindow):
         wake2_to_plot = {}
         z = self.z0
         dp = self.dp0
-
+        old = 0
         for turn in range(n_turns + 1):
             dp2plot[turn] = (z, dp)
             phi = self.phi0 - 2*np.pi*self.h*z/self.L
@@ -197,16 +207,18 @@ class MicrInst(QMainWindow):
             wake1_to_plot[turn] = (zv, v)
             v_s = np.interp(z, zv, v)
             dp = dp + v_s / self.p0
-            z = z - self.alpha_p * dp * (self.L)
+            z = z - self.alpha_p * dp * (self.L/2)
 
             # wakefield from new cavity
-            # curr_z, I = self.get_curr(z)
-            # v = - np.convolve(self.wake2, I) * self.dz / self.c
-            # zv = np.linspace(max(curr_z) - self.dz * len(v), max(curr_z), len(v))
-            # wake2_to_plot[turn] = (zv, v)
-            # v_s = np.interp(z, zv, v)
-            # dp = dp + v_s / self.p0
-            # z = z - self.alpha_p * dp * (self.L/2)
+            curr_z, I = self.get_curr(z)
+            v = - np.convolve(self.wake2, I) * self.dz / self.c
+            zv = np.linspace(max(curr_z) - self.dz * len(v), max(curr_z), len(v))
+            v += old * np.sin(-2*np.pi*64*zv/self.L)
+            wake2_to_plot[turn] = (zv, v)
+            v_s = np.interp(z, zv, v)
+            dp = dp + v_s / self.p0
+            z = z - self.alpha_p * dp * (self.L/2)
+            old = v
 
             print("turn = %g %%" % (100*turn/n_turns))
         return wake1_to_plot, wake2_to_plot, curr2plot, dp2plot
@@ -222,8 +234,10 @@ class MicrInst(QMainWindow):
 
         # wake
         self.wake1, self.wake2 = self.calc_wake(self.xi)
-        self.wake_plot.clear()
-        self.wake_plot.plot(self.xi, self.wake2 / 1e12, pen=pg.mkPen('g', width=1))
+        self.wake1_plot.clear()
+        self.wake1_plot.plot(self.xi, self.wake1 / 1e12, pen=pg.mkPen('g', width=1))
+        self.wake2_plot.clear()
+        self.wake2_plot.plot(self.xi, self.wake2 / 1e12, pen=pg.mkPen('g', width=1))
 
         self.wake1_to_plot.clear()
         self.wake2_to_plot.clear()
@@ -234,12 +248,13 @@ class MicrInst(QMainWindow):
             self.cav_turns(self.spin_n_turns.value())
         self.turn_replot()
 
+    def plot_phase(self):
+        z, dp = self.dp2plot[self.spin_turn.value()]
+        self.dp_plot.clear()
+        self.dp_plot.plot(z, 100 * dp, pen=None, symbol='star', symbolSize=5)
+
     def turn_replot(self):
         turn = self.spin_turn.value()
-        z, dp = self.dp2plot[turn]
-        # self.dp_plot.clear()
-        # self.dp_plot.plot(z, 100 * dp, pen=None, symbol='star', symbolSize=5)
-
         curr_z, I = self.curr2plot[turn]
         self.curr_plot.clear()
         self.curr_plot.plot(curr_z, I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
@@ -248,9 +263,9 @@ class MicrInst(QMainWindow):
         zv, v = self.wake1_to_plot[turn]
         self.wake1_curr_plot.clear()
         self.wake1_curr_plot.plot(zv, v / 1e3, pen=pg.mkPen('r', width=1))
-        # zv, v = self.wake2_to_plot[turn]
-        # self.wake2_curr_plot.clear()
-        # self.wake2_curr_plot.plot(zv, v / 1e3, pen=pg.mkPen('r', width=1))
+        zv, v = self.wake2_to_plot[turn]
+        self.wake2_curr_plot.clear()
+        self.wake2_curr_plot.plot(zv, v / 1e3, pen=pg.mkPen('r', width=1))
 
     def calc_wake(self, xi):
         # wake from old system
