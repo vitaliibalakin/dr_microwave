@@ -16,7 +16,7 @@ class MicrInst(QMainWindow):
         self.show()
         self.plot_area()
 
-        # constants definitions
+        # constants definition
         self.c = 299792458  # m/s
         self.mc = 0.511e6   # eV/c
         self.Qe = 1.60217662e-19    # elementary charge in Coulombs
