@@ -20,12 +20,12 @@ class MicrInst(QMainWindow):
         self.c = 299792458  # m/s
         self.mc = 0.511e6   # eV/c
         self.Qe = 1.60217662e-19    # elementary charge in Coulombs
-        self.p0 = 392e6  # eV/c
+        self.p0 = 430e6  # eV/c
         self.L = 27  # m, damping ring perimeter
         # self.alpha_p = 1 / 36 - 1 / ((self.p0/self.mc)**2)  # momentum compactor factor
         self.h = 1
         self.eVrf = 9.51e3  # eV, RF voltage
-        self.sr_dump = 1.878e3  # eV, SR dumping
+        self.sr_dump = 2.3e3  # eV, SR dumping
         self.phi0 = np.arccos(self.sr_dump/self.eVrf)
         self.dz = 0.03
 

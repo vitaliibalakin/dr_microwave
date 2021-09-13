@@ -20,12 +20,13 @@ class MicrInst(QMainWindow):
         self.c = 299792458  # m/s
         self.mc = 0.511e6   # eV/c
         self.Qe = 1.60217662e-19    # elementary charge in Coulombs
-        self.p0 = 392e6  # eV/c
+        self.p0 = 430e6  # eV/c
         self.L = 27  # m, damping ring perimeter
         # self.alpha_p = 1 / 36 - 1 / ((self.p0/self.mc)**2)  # momentum compactor factor
-        self.h = 64
-        self.eVrf = 9.51e3  # 9.51e3  # eV, RF voltage
-        self.sr_dump = 1.878e3  # eV, SR dumping
+        # self.h = 32
+        self.eVrf = 9.51e3
+        self.eVnew = 400e3 #9.51e3  # 9.51e3  # eV, RF voltage
+        self.sr_dump = 2.3e3  # eV, SR dumping
         self.phi0 = np.arccos(self.sr_dump/self.eVrf)
         self.dz = 0.03
 
@@ -75,7 +76,7 @@ class MicrInst(QMainWindow):
     def beam_particles_dist(self):
         if self.custom_dist == 'default':
             self.dz = 0.03
-            self.sigma_z = 0.2
+            self.sigma_z = 0.4
             self.z0 = np.random.normal(scale=self.sigma_z, size=self.N)
             self.dp0 = np.random.normal(scale=self.sigma_dp, size=self.N)
         elif self.custom_dist == 'linac_beam':
@@ -187,6 +188,7 @@ class MicrInst(QMainWindow):
         p.addWidget(self.plot_window)
 
     def cav_turns(self, n_turns=5000):
+        filtered = 20
         dp2plot = {}
         curr2plot = {}
         wake1_to_plot = {}
@@ -195,16 +197,25 @@ class MicrInst(QMainWindow):
         dp = self.dp0
         old = 0
         for turn in range(n_turns + 1):
-            dp2plot[turn] = (z, dp)
-            phi = self.phi0 - 2*np.pi*self.h*z/self.L
+            phi = self.phi0 - 2*np.pi*1*z/self.L
             # cavity
-            dp = dp + self.eVrf*np.cos(phi)/self.p0 - self.sr_dump*(1 + dp)**4/self.p0
+            if turn < n_turns / 2:
+                dp = dp + self.eVrf*np.cos(phi)/self.p0 - self.sr_dump*(1 + dp)**4/self.p0
+                print('OLD, ', self.eVrf, "TURN, ", turn)
+            else:
+                dp = dp + self.eVrf * np.cos(phi) / self.p0 * 2 * (1 - turn / n_turns) - self.sr_dump * (1 + dp) ** 4 / self.p0
+                print('OLD, ', self.eVrf * 2 * (1 - turn / n_turns), "TURN, ", turn)
+
             # wakefield from all ring + cav
             curr_z, I = self.get_curr(z)
-            curr2plot[turn] = (curr_z, I)
             v = - np.convolve(self.wake1, I) * self.dz / self.c
             zv = np.linspace(max(curr_z) - self.dz * len(v), max(curr_z), len(v))
-            wake1_to_plot[turn] = (zv, v)
+
+            if turn % filtered == 0:
+                dp2plot[turn // filtered] = (z, dp)
+                curr2plot[turn // filtered] = (curr_z, I)
+                # wake1_to_plot[turn // filtered] = (zv, v)
+
             v_s = np.interp(z, zv, v)
             dp = dp + v_s / self.p0
             z = z - self.alpha_p * dp * (self.L/2)
@@ -213,14 +224,24 @@ class MicrInst(QMainWindow):
             curr_z, I = self.get_curr(z)
             v = - np.convolve(self.wake2, I) * self.dz / self.c
             zv = np.linspace(max(curr_z) - self.dz * len(v), max(curr_z), len(v))
-            v += old * np.sin(-2*np.pi*64*zv/self.L)
-            wake2_to_plot[turn] = (zv, v)
-            v_s = np.interp(z, zv, v)
+            # if turn % filtered == 0:
+            #     wake2_to_plot[turn // filtered] = (zv, v)
+
+            phi = self.phi0 - 2 * np.pi * 32 * z / self.L
+            if turn < n_turns / 2:
+                dp = dp + self.eVnew * np.cos(phi) / self.p0 * (2 * turn / n_turns)
+                print('NEW, ', self.eVnew * (2 * turn / n_turns), "TURN, ", turn)
+            else:
+                dp = dp + self.eVnew * np.cos(phi) / self.p0
+                print('NEW, ', self.eVnew, "TURN, ", turn)
+
+            v_s = np.interp(z, zv, v) + old * np.sin(-2*np.pi*32*z/self.L)
             dp = dp + v_s / self.p0
             z = z - self.alpha_p * dp * (self.L/2)
-            old = v
+            old = v_s
 
             print("turn = %g %%" % (100*turn/n_turns))
+        self.slider_turn.setMaximum(n_turns // filtered)
         return wake1_to_plot, wake2_to_plot, curr2plot, dp2plot
 
     def turn_recalc(self):
@@ -260,12 +281,12 @@ class MicrInst(QMainWindow):
         self.curr_plot.plot(curr_z, I, stepMode=True, fillLevel=0, brush=(0, 0, 255, 150))
         # self.curr_plot.plot(z)
 
-        zv, v = self.wake1_to_plot[turn]
-        self.wake1_curr_plot.clear()
-        self.wake1_curr_plot.plot(zv, v / 1e3, pen=pg.mkPen('r', width=1))
-        zv, v = self.wake2_to_plot[turn]
-        self.wake2_curr_plot.clear()
-        self.wake2_curr_plot.plot(zv, v / 1e3, pen=pg.mkPen('r', width=1))
+        # zv, v = self.wake1_to_plot[turn]
+        # self.wake1_curr_plot.clear()
+        # self.wake1_curr_plot.plot(zv, v / 1e3, pen=pg.mkPen('r', width=1))
+        # zv, v = self.wake2_to_plot[turn]
+        # self.wake2_curr_plot.clear()
+        # self.wake2_curr_plot.plot(zv, v / 1e3, pen=pg.mkPen('r', width=1))
 
     def calc_wake(self, xi):
         # wake from old system
